@@ -3,7 +3,9 @@ import 'dart:math';
 import 'package:app_settings/app_settings.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_notification/view/message_page.dart';
 
 
 class NotificationServices{
@@ -12,7 +14,7 @@ class NotificationServices{
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin=FlutterLocalNotificationsPlugin();
   void reqNotificationPermission()async {
     NotificationSettings settings= await messaging.requestPermission(
-        alert: true,
+        alert: true,//notification can be display on the screen
         announcement: true,
         badge: true,
         carPlay: true,
@@ -38,7 +40,7 @@ class NotificationServices{
 
   //local Notification
 
-  void initLocalNotification( RemoteMessage message)async{
+  void initLocalNotification( BuildContext context,RemoteMessage message)async{
     var androidInitializationSettings= const AndroidInitializationSettings('@mipmap/ic_launcher');
     var iosInitializationSettings= const DarwinInitializationSettings();
     var initializationSetting= InitializationSettings(
@@ -49,20 +51,25 @@ class NotificationServices{
         initializationSetting,
         onDidReceiveNotificationResponse: (payload){
 
+          handleMessage(context, message);
+
         });
   }
 
+//intialize firebase to get our message
 
-
-  void firebaseInit(){
+  void firebaseInit(BuildContext context){
     FirebaseMessaging.onMessage.listen((message) {
       if(kDebugMode) {
         print(message.notification!.title.toString());
         print(message.notification!.body.toString());
+        print(message.data['type']);
       }
-      if(Platform.isAndroid){
-        initLocalNotification(message);
+      if(Platform.isAndroid){//for android
+        initLocalNotification(context,message);
         showNotification(message);
+      }else{
+        showNotification(message);//for ios
       }
 
     });
@@ -97,6 +104,35 @@ class NotificationServices{
           notificationDetails
       );
     });
+  }
+
+  //message redirection
+
+  //WHEN APP IS IN BACKGROUND
+  Future<void>  setupInteractMessageScreen(BuildContext context)async{
+
+    RemoteMessage? initialMessage=await FirebaseMessaging.instance.getInitialMessage();
+
+    if(initialMessage!=null){
+      handleMessage(context, initialMessage);
+
+    }
+
+    FirebaseMessaging.onMessageOpenedApp.listen((event) {
+      handleMessage(context, event);
+    });
+
+  }
+
+// when app is active
+  void handleMessage(BuildContext context,RemoteMessage message){
+
+    if(message.data['type']=='msg'){
+      Navigator.push(context, MaterialPageRoute(builder: (context)=>const MessagePage()));
+    }
+
+
+
   }
 
 
